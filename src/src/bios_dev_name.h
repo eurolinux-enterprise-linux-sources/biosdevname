@@ -6,7 +6,7 @@
 #ifndef GLUE_H_INCLUDED
 #define GLUE_H_INCLUDED
 
-#define BIOSDEVNAME_VERSION "0.7.1"
+#define BIOSDEVNAME_VERSION "0.7.2"
 
 struct bios_dev_name_opts {
 	int argc;
