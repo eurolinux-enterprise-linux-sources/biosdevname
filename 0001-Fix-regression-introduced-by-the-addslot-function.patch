@@ -1,0 +1,282 @@
+From 783de6c93b01fec3f3cb8682156a21417567db9f Mon Sep 17 00:00:00 2001
+From: Narendra K <narendra_k@dell.com>
+Date: Wed, 4 Sep 2013 20:32:14 +0530
+Subject: [PATCH] Fix regression introduced by the addslot function
+
+This patch reverts the following commits
+
+1452ea7125b5e713b80459f7b528d5562438f3d5
+0bb870f09a34b6c505fcefdbcf85cfcc1aa5ca97
+
+The commits introduced addslot function to implement naming for
+devices which have more than one physical port sharing the same
+PCI b/d/f. But the port determination logic in 'addslot' function
+could
+result in more than one interface on a given PCI slot getting same
+port number when renames are happening in parallel. This patch
+restores the logic that existed in version 0.3.11 to determine
+port number of an interface.
+
+Fixes Fedora bz-782145.
+---
+ src/bios_device.c   | 59 ------------------------------------
+ src/bios_device.h   |  3 --
+ src/naming_policy.c |  6 ++--
+ src/pci.c           | 86 ++++++++++++++++++++++++++++++-----------------------
+ 4 files changed, 50 insertions(+), 104 deletions(-)
+
+diff --git a/src/bios_device.c b/src/bios_device.c
+index a8827ec..132877e 100644
+--- a/src/bios_device.c
++++ b/src/bios_device.c
+@@ -217,32 +217,6 @@ static void match_pci_and_eth_devs(struct libbiosdevname_state *state)
+ 	struct pci_device *p;
+ 	struct bios_device *b;
+ 	struct network_device *n;
+-
+-	list_for_each_entry(n, &state->network_devices, node) {
+-		p = find_dev_by_pci_name(state, n->drvinfo.bus_info);
+-		if (!p)
+-			continue;
+-
+-		b = malloc(sizeof(*b));
+-		if (!b)
+-			continue;
+-		memset(b, 0, sizeof(*b));
+-		INIT_LIST_HEAD(&b->node);
+-		b->pcidev = p;
+-		b->netdev = n;
+-		b->slot_num = -1;
+-		b->port_num = -1;
+-		claim_netdev(b->netdev);
+-		list_add(&b->node, &state->bios_devices);
+-	}
+-}
+-
+-
+-static void match_eth_and_pci_devs(struct libbiosdevname_state *state)
+-{
+-	struct pci_device *p;
+-	struct bios_device *b;
+-	struct network_device *n;
+ 	char pci_name[40];
+ 
+ 	list_for_each_entry(p, &state->pci_devices, node) {
+@@ -261,8 +235,6 @@ static void match_eth_and_pci_devs(struct libbiosdevname_state *state)
+ 		INIT_LIST_HEAD(&b->node);
+ 		b->pcidev = p;
+ 		b->netdev = n;
+-		b->slot_num = -1;
+-		b->port_num = -1;
+ 		claim_netdev(b->netdev);
+ 		list_add(&b->node, &state->bios_devices);
+ 	}
+@@ -286,8 +258,6 @@ static void match_unknown_eths(struct libbiosdevname_state *state)
+ 		memset(b, 0, sizeof(*b));
+ 		INIT_LIST_HEAD(&b->node);
+ 		b->netdev = n;
+-		b->slot_num = -1;
+-		b->port_num = -1;
+ 		list_add(&b->node, &state->bios_devices);
+ 	}
+ }
+@@ -355,32 +325,6 @@ static void find_duplicates(struct libbiosdevname_state *state)
+ 	}
+ }
+ 
+-extern int addslot(struct libbiosdevname_state *state, int slot);
+-
+-/* Fix for RHBZ 816536/757743/756164/: Cards with same PCI but multiple ports
+- * chelsio, mellanox */
+-static int check_ports(struct libbiosdevname_state *state)
+-{
+-	struct pci_device *dev;
+-	struct bios_device *a;
+-        int slot = 0;
+-
+-	list_for_each_entry(a, &state->bios_devices, node) {
+-		dev = a->pcidev;
+-		if (dev == NULL || dev->is_sriov_virtual_function || dev->vpd_port != INT_MAX)
+-			continue;
+-		if (dev->physical_slot != PHYSICAL_SLOT_UNKNOWN) {
+-			a->slot_num = dev->physical_slot;
+-			slot = addslot(state, 0x1000 + dev->physical_slot);
+-                        if (slot<0)
+-                                return slot;
+-                        a->port_num = slot;
+-		}
+-	}
+-
+-        return 0;
+-}
+-
+ void * setup_bios_devices(int namingpolicy, const char *prefix)
+ {
+ 	int rc=1;
+@@ -396,9 +340,6 @@ void * setup_bios_devices(int namingpolicy, const char *prefix)
+ 	get_eths(state);
+ 	match_all(state);
+ 	sort_device_list(state);
+-	rc = check_ports(state);
+-        if (rc)
+-                goto out;
+ 	rc = assign_bios_network_names(state, namingpolicy, prefix);
+ 	if (rc)
+ 		goto out;
+diff --git a/src/bios_device.h b/src/bios_device.h
+index d1ef911..690ed6f 100644
+--- a/src/bios_device.h
++++ b/src/bios_device.h
+@@ -19,9 +19,6 @@ struct bios_device {
+ 	struct pci_device *pcidev;
+ 	char *bios_name;
+ 	int duplicate;
+-
+-	int slot_num;
+-	int port_num;
+ };
+ 
+ static inline int is_pci(const struct bios_device *dev)
+diff --git a/src/naming_policy.c b/src/naming_policy.c
+index fe7b934..4f2033c 100644
+--- a/src/naming_policy.c
++++ b/src/naming_policy.c
+@@ -59,8 +59,8 @@ static void use_physical(const struct libbiosdevname_state *state, const char *p
+ 					portnum = vf->sysfs_index;
+ 				else if (vf->uses_smbios & HAS_SMBIOS_INSTANCE && is_pci_smbios_type_ethernet(vf))
+ 					portnum = vf->smbios_instance;
+-				else if (dev->port_num != -1)
+-					portnum = dev->port_num;
++				else if (vf->embedded_index_valid)
++					portnum = vf->embedded_index;
+ 				if (portnum != INT_MAX) {	
+ 					snprintf(location, sizeof(location), "%s%u", prefix, portnum);
+ 					known=1;
+@@ -70,8 +70,6 @@ static void use_physical(const struct libbiosdevname_state *state, const char *p
+ 				snprintf(location, sizeof(location), "p%u", dev->pcidev->physical_slot);
+ 				if (dev->pcidev->vpd_port < INT_MAX)
+ 					portnum = dev->pcidev->vpd_port;
+-				else if (dev->port_num != -1)
+-					portnum = dev->port_num;
+ 				else if (!dev->pcidev->is_sriov_virtual_function)
+ 				  	portnum = dev->pcidev->index_in_slot;
+ 				else
+diff --git a/src/pci.c b/src/pci.c
+index b64fc3f..7aa32fc 100644
+--- a/src/pci.c
++++ b/src/pci.c
+@@ -637,26 +637,6 @@ void free_pci_devices(struct libbiosdevname_state *state)
+ 	}
+ }
+ 
+-int addslot(struct libbiosdevname_state *state, int slot)
+-{
+-	struct slotlist *s;
+-
+-	list_for_each_entry(s, &state->slots, node) {
+-		if (s->slot == slot) {
+-			return ++s->count;
+-		}
+-	}
+-	s = malloc(sizeof(*s));
+-        if(!s)
+-                return -1;
+-	INIT_LIST_HEAD(&s->node);
+-	s->slot = slot;
+-	s->count = 0;
+-	list_add(&s->node, &state->slots);
+-
+-	return ++s->count;
+-}
+-
+ static int set_pci_slots(struct libbiosdevname_state *state)
+ {
+ 	struct pci_device *dev;
+@@ -665,29 +645,56 @@ static int set_pci_slots(struct libbiosdevname_state *state)
+ 	list_for_each_entry(dev, &state->pci_devices, node) {
+ 		dev_to_slot(state, dev);
+ 	}
++}
+ 
+-	/* Get mapping for each slot */
+-	list_for_each_entry(dev, &state->pci_devices, node) {
+-		if (dev->is_sriov_virtual_function || !is_pci_network(dev) || dev->vpd_port != INT_MAX) {
++static int set_pci_slot_index(struct libbiosdevname_state *state)
++{
++	struct pci_device *pcidev;
++	int prevslot=-1;
++	int index=1;
++
++	/* only iterate over the PCI devices, because the bios_device list may be incomplete due to renames happening in parallel */
++	list_for_each_entry(pcidev, &state->pci_devices, node) {
++		if (pcidev->physical_slot == 0) /* skip embedded devices */
++ 			continue;
++		if (!is_pci_network(pcidev)) /* only look at PCI network devices */
+ 			continue;
+-		}
+-		if (dev->physical_slot == 0) {
+-			dev->embedded_index_valid = 1;
+-			slot = addslot(state, 0);
+-                        if (slot<0)
+-                                return slot;
+-                        dev->embedded_index = slot;
+-		} else if (dev->physical_slot != PHYSICAL_SLOT_UNKNOWN) {
+-			slot = addslot(state, dev->physical_slot);
+-                        if (slot<0)
+-                                return slot;
+-                        dev->index_in_slot = slot;
+-		}
+-	}
++		if (pcidev->is_sriov_virtual_function) /* skip sriov VFs, they're handled later */
++			continue;
++		if (pcidev->physical_slot != prevslot) {
++			index=1;
++			prevslot = pcidev->physical_slot;
++ 		}
++		else
++			index++;
++		pcidev->index_in_slot = index;
++ 	}
++	return 0;
++}
++ 
++static int set_embedded_index(struct libbiosdevname_state *state)
++{
++	struct pci_device *pcidev;
++	int index=1;
+ 
+-        return 0;
++	list_for_each_entry(pcidev, &state->pci_devices, node) {
++		if (pcidev->physical_slot != 0) /* skip non-embedded devices */
++			continue;
++		if (!is_pci_network(pcidev)) /* only look at PCI network devices */
++			continue;
++		if (pcidev->is_sriov_virtual_function) /* skip sriov VFs, they're handled later */
++			continue;
++		if (pcidev->vpd_port != INT_MAX)
++			continue;
++		pcidev->embedded_index = index;
++		pcidev->embedded_index_valid = 1;
++		index++;
++	}
++	return 0;
+ }
+ 
++
++
+ static void set_sriov_pf_vf(struct libbiosdevname_state *state)
+ {
+ 	struct pci_device *vf;
+@@ -774,6 +781,9 @@ int get_pci_devices(struct libbiosdevname_state *state)
+ 	rc = set_pci_slots(state);
+         if(rc)
+                 goto out;
++
++        set_embedded_index(state);
++	set_pci_slot_index(state);
+ 	set_sriov_pf_vf(state);
+ 
+ out:
+-- 
+1.8.3.1
+
