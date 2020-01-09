@@ -112,12 +112,11 @@ static int matchpci(struct pci_device *pdev, int domain, int bus, int device, in
 	return 1;
 }
 
-int smbios_setslot(const struct libbiosdevname_state *state, 
-		   int domain, int bus, int device, int func,
-		   int type, int slot, int index, const char *label)
+void smbios_setslot(const struct libbiosdevname_state *state, 
+		    int domain, int bus, int device, int func,
+		    int type, int slot, int index, const char *label)
 {
-	struct pci_device *pdev, *n;
-	int i;
+	struct pci_device *pdev;
 
 	dprintf("setslot: %.4x:%.2x:%.2x.%x = type:%x slot(%2d %2d) %s\n",
 		domain, bus, device, func, type, slot, index, label);
@@ -158,13 +157,13 @@ int smbios_setslot(const struct libbiosdevname_state *state,
 			smbios_setslot(state, domain, pdev->sbus, -1, -1, type, slot, index, label);
 		}
 	}
-	return 0;
 }
 
 static void dmi_decode(struct dmi_header *h, u16 ver, const struct libbiosdevname_state *state)
 {
 	u8 *data=h->data;
-	int domain, bus, device, function, i;
+
+	int domain, bus, device, function;
 	switch(h->type)
 	{
 	case 9: /* 3.3.10 System Slots */
@@ -173,7 +172,11 @@ static void dmi_decode(struct dmi_header *h, u16 ver, const struct libbiosdevnam
 			bus = data[0x0F];
 			device = (data[0x10]>>3)&0x1F;
 			function = data[0x10] & 7;
-			smbios_setslot(state, domain, bus, device, -1, 
+
+			/* Root ports can be on multiport device.. scan single */
+			if (!is_root_port(state, domain, bus, device, function))
+				function = -1;
+			smbios_setslot(state, domain, bus, device, function, 
 				       0x00, WORD(data+0x09), 0x00,
 				       dmi_string(h, data[0x04]));
 		}

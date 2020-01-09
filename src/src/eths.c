@@ -23,6 +23,7 @@
 #include "pci.h"
 #include "eths.h"
 #include "state.h"
+#include "sysfs.h"
 
 /* Display an Ethernet address in readable format. */
 char *pr_ether(char *buf, const int size, const unsigned char *s)
@@ -34,18 +35,76 @@ char *pr_ether(char *buf, const int size, const unsigned char *s)
 	return (buf);
 }
 
-static int eths_get_devid(const char *devname, int *devid)
+static void eths_get_devid(const char *devname, int *devid)
 {
 	char path[PATH_MAX];
 	char *devidstr = NULL;
 
 	*devid = -1;
-	snprintf(path, sizeof(path), "/sys/class/net/%s/dev_id", devname);
+	snprintf(path, sizeof(path), "/sys/class/net/%s/dev_port", devname);
 	if (sysfs_read_file(path, &devidstr) == 0) {
 		sscanf(devidstr, "%i", devid);
 		free(devidstr);
+	} else {
+		snprintf(path, sizeof(path), "/sys/class/net/%s/dev_id", devname);
+		if (sysfs_read_file(path, &devidstr) == 0) {
+			sscanf(devidstr, "%i", devid);
+			free(devidstr);
+		}
 	}
-	return NULL;
+}
+
+static int eths_get_devtype(struct network_device *dev)
+{
+	int fd;
+	int ret = 0;
+	ssize_t length = 0;
+	char path[PATH_MAX];
+	char *result = NULL, *n, *temp;
+	unsigned long resultsize = 0, devtype_len = 0;
+
+	snprintf(path, sizeof(path), "/sys/class/net/%s/uevent", dev->kernel_name);
+
+	resultsize = getpagesize();
+	result = malloc(resultsize);
+	if (!result)
+		return -ENOMEM;
+	memset(result, 0, resultsize);
+
+	fd = open(path, O_RDONLY);
+	if (fd < 0) {
+		ret = fd;
+		goto free_out;
+	}
+
+	length = read(fd, result, resultsize-1);
+	close(fd);
+
+	if (length < 0) {
+		ret = -1;
+		goto free_out;
+	}
+	result[length] = '\0';
+	
+	n = strstr(result, "DEVTYPE=");
+	if (n) {
+		n += strlen("DEVTYPE=");
+		if (!strncmp(n, "fcoe", 4)) 
+			ret = 1;
+	}
+			
+	if (ret && (temp = strstr(n, "\n")) != NULL) {
+		*temp = '\0';
+		devtype_len = strlen(n);
+		dev->devtype = malloc(devtype_len + 1);
+		if (dev->devtype) {
+			memset(dev->devtype, 0, devtype_len + 1);
+			strncpy(dev->devtype, n, devtype_len);
+		}
+	}
+free_out:
+	free(result);
+	return ret;
 }
 
 static int eths_get_ifindex(const char *devname, int *ifindex)
@@ -54,7 +113,7 @@ static int eths_get_ifindex(const char *devname, int *ifindex)
 	struct ifreq ifr;
 
 	memset(&ifr, 0, sizeof(ifr));
-	strncpy(ifr.ifr_name, devname, sizeof(ifr.ifr_name));
+	strncpy(ifr.ifr_name, devname, sizeof(ifr.ifr_name)-1);
 
 	/* Open control socket. */
 	fd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -77,7 +136,7 @@ static int eths_get_hwaddr(const char *devname, unsigned char *buf, int size, in
 	struct ifreq ifr;
 
 	memset(&ifr, 0, sizeof(ifr));
-	strncpy(ifr.ifr_name, devname, sizeof(ifr.ifr_name));
+	strncpy(ifr.ifr_name, devname, sizeof(ifr.ifr_name)-1);
 
 	/* Open control socket. */
 	fd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -102,7 +161,7 @@ static int eths_get_info(const char *devname, struct ethtool_drvinfo *drvinfo)
 
 	/* Setup our control structures. */
 	memset(&ifr, 0, sizeof(ifr));
-	strncpy(ifr.ifr_name, devname, sizeof(ifr.ifr_name));
+	strncpy(ifr.ifr_name, devname, sizeof(ifr.ifr_name)-1);
 
 	/* Open control socket. */
 	fd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -132,7 +191,7 @@ static int eths_get_permaddr(const char *devname, unsigned char *buf, int size)
 
 	/* Setup our control structures. */
 	memset(&ifr, 0, sizeof(ifr));
-	strncpy(ifr.ifr_name, devname, sizeof(ifr.ifr_name));
+	strncpy(ifr.ifr_name, devname, sizeof(ifr.ifr_name)-1);
 
 
 
@@ -159,11 +218,14 @@ static int eths_get_permaddr(const char *devname, unsigned char *buf, int size)
 
 static void fill_eth_dev(struct network_device *dev)
 {
-	int rc;
+	int rc, devtype;
 	eths_get_ifindex(dev->kernel_name, &dev->ifindex);
 	eths_get_hwaddr(dev->kernel_name, dev->dev_addr, sizeof(dev->dev_addr), &dev->arphrd_type);
 	eths_get_permaddr(dev->kernel_name, dev->perm_addr, sizeof(dev->perm_addr));
 	eths_get_devid(dev->kernel_name, &dev->devid);
+	devtype = eths_get_devtype(dev);
+	if (devtype > 0)
+		dev->devtype_is_fcoe = 1;
 	rc = eths_get_info(dev->kernel_name, &dev->drvinfo);
 	if (rc == 0)
 		dev->drvinfo_valid = 1;

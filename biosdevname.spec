@@ -1,5 +1,5 @@
 Name:		biosdevname
-Version:	0.5.1
+Version:	0.6.2
 Release:	1%{?dist}
 Summary:	Udev helper for naming devices per BIOS names
 
@@ -20,7 +20,6 @@ BuildRequires: automake autoconf
 Requires: udev
 
 Patch1: 0001-Enable-biosdevname-by-default-only-on-Dell-servers.patch
-Patch2: 0001-CoverityScan-update.patch
 
 %description
 biosdevname in its simplest form takes a kernel device name as an
@@ -32,7 +31,6 @@ name (e.g. eth0).
 %prep
 %setup -q
 %patch1 -p1 -b .off 
-%patch2 -p1
 
 %build
 autoreconf
@@ -54,6 +52,14 @@ make install install-data DESTDIR=%{buildroot}
 
 
 %changelog
+* Mon Apr 27 2015 Michal Sekletar <msekleta@redhat.com> - 0.6.2-1
+- version 0.6.2
+Resolves: rhbz#1003465,rhbz#1084225,rhbz#1133523,rhbz#1158564,rhbz#1207557,rhbz#1212449
+
+* Mon Dec 15 2014 Michal Sekletar <msekleta@redhat.com> - 0.6.1-1
+- version 0.6.1
+Resolves: rhbz#1003465,rhbz#1084225,rhbz#1133523,rhbz#1158564
+
 * Tue May  6 2014 Tom Gundersen <tgunders@redhat.com> - 0.5.1-1
 - version 0.5.1
 Resolves: rhbz#1053492
