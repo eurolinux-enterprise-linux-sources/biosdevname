@@ -1,5 +1,5 @@
 Name:		biosdevname
-Version:	0.6.2
+Version:	0.7.1
 Release:	1%{?dist}
 Summary:	Udev helper for naming devices per BIOS names
 

@@ -1,0 +1,33 @@
+From d7ac3cf4a68d90e99cc8f0f8084e27362076d25d Mon Sep 17 00:00:00 2001
+From: Gideon Naim <gideonn@mellanox.com>
+Date: Fri, 22 Jan 2016 17:53:34 +0530
+Subject: [PATCH] Remove special handling for ConnectX-4 devices
+
+In ConnectX-4 based devices, each physical port
+has a dedicated PCI function. Apply special handling
+for only ConnectX-3 based devices where single PCI
+function is shared by multiple physical ports.
+
+(cherry-picked from commit 22aa46663000304e5b9542273ec67d1b988ae3da)
+
+Resolves: #1305446
+---
+ src/bios_device.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/bios_device.c b/src/bios_device.c
+index cbe6230..6636e67 100644
+--- a/src/bios_device.c
++++ b/src/bios_device.c
+@@ -217,7 +217,7 @@ static void sort_device_list(struct libbiosdevname_state *state)
+ /* Check for Mellanox/Chelsio drivers */
+ int ismultiport(const char *driver)
+ {
+-	if (!strncmp(driver, "mlx", 3))
++	if (!strncmp(driver, "mlx4", 4))
+ 		return 1;
+ 	if (!strncmp(driver, "cxgb", 4))
+ 		return 1;
+-- 
+2.5.0
+

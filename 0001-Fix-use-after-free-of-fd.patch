@@ -1,0 +1,30 @@
+From 0167eee3dacbc04344a433361de5b0a46587bbf6 Mon Sep 17 00:00:00 2001
+From: Michal Sekletar <msekleta@redhat.com>
+Date: Tue, 22 Dec 2015 10:34:16 +0100
+Subject: [PATCH] Fix use-after-free of fd
+
+This bug got introduced in
+51219cac581b5eaced5b172dbbb4586889cb27e1. I overlooked that we are
+already properly closing fd on non-error code path and I added redundant
+call to close.
+
+Closing already closed fd is harmless though. Function returns EBADF and
+fails silently.
+---
+ src/dmidecode/util.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/src/dmidecode/util.c b/src/dmidecode/util.c
+index 3340e1f..ea06663 100644
+--- a/src/dmidecode/util.c
++++ b/src/dmidecode/util.c
+@@ -162,6 +162,5 @@ void *mem_chunk(size_t base, size_t len, const char *devmem)
+ 	if(close(fd)==-1)
+ 		perror(devmem);
+ 
+-	close(fd);
+ 	return p;
+ }
+-- 
+2.5.0
+

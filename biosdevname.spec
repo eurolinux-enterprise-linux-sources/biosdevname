@@ -1,6 +1,6 @@
 Name:		biosdevname
-Version:	0.6.2
-Release:	1%{?dist}
+Version:	0.7.1
+Release:	3%{?dist}
 Summary:	Udev helper for naming devices per BIOS names
 
 Group:		System Environment/Base
@@ -20,6 +20,8 @@ BuildRequires: automake autoconf
 Requires: udev
 
 Patch1: 0001-Enable-biosdevname-by-default-only-on-Dell-servers.patch
+Patch2: 0001-Fix-use-after-free-of-fd.patch
+Patch3: 0001-Remove-special-handling-for-ConnectX-4-devices.patch
 
 %description
 biosdevname in its simplest form takes a kernel device name as an
@@ -30,7 +32,9 @@ name (e.g. eth0).
 
 %prep
 %setup -q
-%patch1 -p1 -b .off 
+%patch1 -p1 -b .off
+%patch2 -p1
+%patch3 -p1
 
 %build
 autoreconf
@@ -52,6 +56,21 @@ make install install-data DESTDIR=%{buildroot}
 
 
 %changelog
+* Tue Feb 23 2016 Michal Sekletar <msekleta@redhat.com> - 0.7.1-3
+- remove special handling for ConnectX-4 devices (#1305446)
+
+* Tue Dec 22 2015 Michal Sekletar <msekleta@redhat.com> - 0.7.1-2
+- fix use-after-free
+Related: rhbz#1253421
+
+* Tue Dec 22 2015 Michal Sekletar <msekleta@redhat.com> - 0.7.1-1
+- version 0.7.1
+Related: rhbz#1253421
+
+* Fri Dec 18 2015 Michal Sekletar <msekleta@redhat.com> - 0.7.0-1
+- version 0.7.0
+Resolves: rhbz#1253421
+
 * Mon Apr 27 2015 Michal Sekletar <msekleta@redhat.com> - 0.6.2-1
 - version 0.6.2
 Resolves: rhbz#1003465,rhbz#1084225,rhbz#1133523,rhbz#1158564,rhbz#1207557,rhbz#1212449
