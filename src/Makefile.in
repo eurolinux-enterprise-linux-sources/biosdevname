@@ -82,8 +82,9 @@ DIST_COMMON = $(srcdir)/src/Makefile.am INSTALL NEWS README AUTHORS \
 	$(top_srcdir)/configure $(am__configure_deps) \
 	$(srcdir)/config.h.in $(srcdir)/biosdevname.spec.fedora.in \
 	$(srcdir)/biosdevname.spec.suse.in \
-	$(top_srcdir)/src/version.h.in depcomp $(dist_noinst_DATA) \
-	COPYING TODO compile install-sh missing ltmain.sh
+	$(top_srcdir)/src/bios_dev_name.h.in depcomp \
+	$(dist_noinst_DATA) COPYING TODO compile install-sh missing \
+	ltmain.sh
 sbin_PROGRAMS = src/biosdevname$(EXEEXT)
 subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -95,7 +96,7 @@ am__CONFIG_DISTCLEAN_FILES = config.status config.cache config.log \
 mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = config.h
 CONFIG_CLEAN_FILES = biosdevname.spec.fedora biosdevname.spec.suse \
-	src/version.h
+	src/bios_dev_name.h
 CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(sbindir)" "$(DESTDIR)$(man1dir)"
 PROGRAMS = $(sbin_PROGRAMS)
@@ -361,7 +362,7 @@ EXTRA_DIST = pkg src/bios_dev_name.h src/bios_device.h src/pirq.h \
 	src/dmidecode/dmidecode.h src/dmidecode/dmioem.h \
 	src/dmidecode/types.h src/dmidecode/util.h
 dist_noinst_DATA = biosdevname.rules.in biosdevname.spec.fedora biosdevname.spec.suse biosdevname.1
-CLEANFILES = version src/version.h
+CLEANFILES = version src/bios_dev_name.h
 INCLUDES = -I..
 AM_CFLAGS = -Wall -fno-strict-aliasing
 man_MANS = biosdevname.1
@@ -439,7 +440,7 @@ biosdevname.spec.fedora: $(top_builddir)/config.status $(srcdir)/biosdevname.spe
 	cd $(top_builddir) && $(SHELL) ./config.status $@
 biosdevname.spec.suse: $(top_builddir)/config.status $(srcdir)/biosdevname.spec.suse.in
 	cd $(top_builddir) && $(SHELL) ./config.status $@
-src/version.h: $(top_builddir)/config.status $(top_srcdir)/src/version.h.in
+src/bios_dev_name.h: $(top_builddir)/config.status $(top_srcdir)/src/bios_dev_name.h.in
 	cd $(top_builddir) && $(SHELL) ./config.status $@
 install-sbinPROGRAMS: $(sbin_PROGRAMS)
 	@$(NORMAL_INSTALL)

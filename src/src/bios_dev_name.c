@@ -10,8 +10,6 @@
 #include <unistd.h>
 #include <sys/types.h>
 
-#include "version.h"
-
 #include "libbiosdevname.h"
 #include "bios_dev_name.h"
 
@@ -27,11 +25,11 @@ static void usage(void)
 	fprintf(stderr, " Options:\n");
 	fprintf(stderr, "   -i        or --interface           treat [args] as ethernet devs\n");
 	fprintf(stderr, "   -d        or --debug               enable debugging\n");
-	fprintf(stderr, "   --policy [physical | all_ethN ]\n");
-	fprintf(stderr, "   --prefix [string]                  string use for embedded NICs (default='em')\n");
-	fprintf(stderr, "   --smbios [x.y]		       Require SMBIOS x.y or greater\n");
-	fprintf(stderr, "   --nopirq			       Don't use $PIR table for slot numbers\n");
-	fprintf(stderr, "   --version                          Show biosdevname version\n");
+	fprintf(stderr, "   -p        or --policy [physical | all_ethN ]\n");
+	fprintf(stderr, "   -P        or --prefix [string]     string use for embedded NICs (default='em')\n");
+	fprintf(stderr, "   -s        or --smbios [x.y]	       Require SMBIOS x.y or greater\n");
+	fprintf(stderr, "   -x        or --nopirq	       Don't use $PIR table for slot numbers\n");
+	fprintf(stderr, "   -v        or --version             Show biosdevname version\n");
 	fprintf(stderr, " Example:  biosdevname -i eth0\n");
 	fprintf(stderr, "  returns: em1\n");
 	fprintf(stderr, "  when eth0 is an embedded NIC with label '1' on the chassis.\n");
@@ -70,7 +68,7 @@ parse_opts(int argc, char **argv)
 			{0, 0, 0, 0}
 		};
 		c = getopt_long(argc, argv,
-				"dinp:",
+				"dip:P:xs:v",
 				long_options, &option_index);
 		if (c == -1)
 			break;

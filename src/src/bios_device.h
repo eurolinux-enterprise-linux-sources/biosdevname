@@ -12,16 +12,15 @@
 #include "pci.h"
 #include "naming_policy.h"
 
+struct pci_port;
 
 struct bios_device {
 	struct list_head node;
 	struct network_device *netdev;
 	struct pci_device *pcidev;
 	char *bios_name;
+	struct pci_port *port;
 	int duplicate;
-
-	int slot_num;
-	int port_num;
 };
 
 static inline int is_pci(const struct bios_device *dev)

@@ -1,64 +1,20 @@
-From da98b8f43c74492c5471439d6ca20c15da5aeb45 Mon Sep 17 00:00:00 2001
+From d6b3557c13ffb25e80e1b2dedb33de9fbf931795 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?V=C3=A1clav=20Pavl=C3=ADn?= <vpavlin@redhat.com>
 Date: Thu, 15 Nov 2012 10:24:02 +0100
 Subject: [PATCH] CoverityScan update
 
 Resolves: #873636
 ---
- src/bios_device.c | 14 +++++++++++---
- src/eths.c        |  2 +-
- src/pci.c         | 38 +++++++++++++++++++++++++++++---------
- 3 files changed, 41 insertions(+), 13 deletions(-)
+ src/eths.c      |  8 ++++----
+ src/pci.c       | 11 +++++++++--
+ src/read_proc.c |  2 +-
+ 3 files changed, 14 insertions(+), 7 deletions(-)
 
-diff --git a/src/bios_device.c b/src/bios_device.c
-index 9e319a3..a8827ec 100644
---- a/src/bios_device.c
-+++ b/src/bios_device.c
-@@ -359,10 +359,11 @@ extern int addslot(struct libbiosdevname_state *state, int slot);
- 
- /* Fix for RHBZ 816536/757743/756164/: Cards with same PCI but multiple ports
-  * chelsio, mellanox */
--static void check_ports(struct libbiosdevname_state *state)
-+static int check_ports(struct libbiosdevname_state *state)
- {
- 	struct pci_device *dev;
- 	struct bios_device *a;
-+        int slot = 0;
- 
- 	list_for_each_entry(a, &state->bios_devices, node) {
- 		dev = a->pcidev;
-@@ -370,9 +371,14 @@ static void check_ports(struct libbiosdevname_state *state)
- 			continue;
- 		if (dev->physical_slot != PHYSICAL_SLOT_UNKNOWN) {
- 			a->slot_num = dev->physical_slot;
--			a->port_num = addslot(state, 0x1000 + dev->physical_slot);
-+			slot = addslot(state, 0x1000 + dev->physical_slot);
-+                        if (slot<0)
-+                                return slot;
-+                        a->port_num = slot;
- 		}
- 	}
-+
-+        return 0;
- }
- 
- void * setup_bios_devices(int namingpolicy, const char *prefix)
-@@ -390,7 +396,9 @@ void * setup_bios_devices(int namingpolicy, const char *prefix)
- 	get_eths(state);
- 	match_all(state);
- 	sort_device_list(state);
--	check_ports(state);
-+	rc = check_ports(state);
-+        if (rc)
-+                goto out;
- 	rc = assign_bios_network_names(state, namingpolicy, prefix);
- 	if (rc)
- 		goto out;
 diff --git a/src/eths.c b/src/eths.c
-index bcd02e1..04db300 100644
+index 38bb7fe..1eaa6b2 100644
 --- a/src/eths.c
 +++ b/src/eths.c
-@@ -40,7 +40,7 @@ static int eths_get_ifindex(const char *devname, int *ifindex)
+@@ -54,7 +54,7 @@ static int eths_get_ifindex(const char *devname, int *ifindex)
  	struct ifreq ifr;
  
  	memset(&ifr, 0, sizeof(ifr));
@@ -67,7 +23,7 @@ index bcd02e1..04db300 100644
  
  	/* Open control socket. */
  	fd = socket(AF_INET, SOCK_DGRAM, 0);
-@@ -63,7 +63,7 @@ static int eths_get_hwaddr(const char *devname, unsigned char *buf, int size, in
+@@ -77,7 +77,7 @@ static int eths_get_hwaddr(const char *devname, unsigned char *buf, int size, in
  	struct ifreq ifr;
  
  	memset(&ifr, 0, sizeof(ifr));
@@ -76,7 +32,7 @@ index bcd02e1..04db300 100644
  
  	/* Open control socket. */
  	fd = socket(AF_INET, SOCK_DGRAM, 0);
-@@ -88,7 +88,7 @@ static int eths_get_info(const char *devname, struct ethtool_drvinfo *drvinfo)
+@@ -102,7 +102,7 @@ static int eths_get_info(const char *devname, struct ethtool_drvinfo *drvinfo)
  
  	/* Setup our control structures. */
  	memset(&ifr, 0, sizeof(ifr));
@@ -85,7 +41,7 @@ index bcd02e1..04db300 100644
  
  	/* Open control socket. */
  	fd = socket(AF_INET, SOCK_DGRAM, 0);
-@@ -118,7 +118,7 @@ static int eths_get_permaddr(const char *devname, unsigned char *buf, int size)
+@@ -132,7 +132,7 @@ static int eths_get_permaddr(const char *devname, unsigned char *buf, int size)
  
  	/* Setup our control structures. */
  	memset(&ifr, 0, sizeof(ifr));
@@ -95,10 +51,10 @@ index bcd02e1..04db300 100644
  
  
 diff --git a/src/pci.c b/src/pci.c
-index 75cf786..9bc0535 100644
+index 7a7cb36..c0759a7 100644
 --- a/src/pci.c
 +++ b/src/pci.c
-@@ -198,10 +198,14 @@ static void set_pci_vpd_instance(struct libbiosdevname_state *state)
+@@ -219,10 +219,14 @@ static void set_pci_vpd_instance(struct libbiosdevname_state *state)
  
  	/* Read VPD-R on Dell systems only */
  	if ((fd = open("/sys/devices/virtual/dmi/id/sys_vendor", O_RDONLY)) >= 0) {
@@ -115,7 +71,7 @@ index 75cf786..9bc0535 100644
  	} else
  		return;
  
-@@ -238,6 +242,8 @@ static void set_pci_vpd_instance(struct libbiosdevname_state *state)
+@@ -259,6 +263,8 @@ static void set_pci_vpd_instance(struct libbiosdevname_state *state)
  			dev->vpd_pf = NULL;
  		}
  	}
@@ -124,58 +80,9 @@ index 75cf786..9bc0535 100644
  }
  
  static int pci_find_capability(struct pci_dev *p, int cap)
-@@ -628,6 +634,8 @@ int addslot(struct libbiosdevname_state *state, int slot)
- 		}
- 	}
- 	s = malloc(sizeof(*s));
-+        if(!s)
-+                return -1;
- 	INIT_LIST_HEAD(&s->node);
- 	s->slot = slot;
- 	s->count = 0;
-@@ -636,9 +644,10 @@ int addslot(struct libbiosdevname_state *state, int slot)
- 	return ++s->count;
- }
- 
--static void set_pci_slots(struct libbiosdevname_state *state)
-+static int set_pci_slots(struct libbiosdevname_state *state)
- {
- 	struct pci_device *dev;
-+        int slot = 0;
- 
- 	list_for_each_entry(dev, &state->pci_devices, node) {
- 		dev_to_slot(state, dev);
-@@ -651,11 +660,19 @@ static void set_pci_slots(struct libbiosdevname_state *state)
- 		}
- 		if (dev->physical_slot == 0) {
- 			dev->embedded_index_valid = 1;
--			dev->embedded_index = addslot(state, 0);
-+			slot = addslot(state, 0);
-+                        if (slot<0)
-+                                return slot;
-+                        dev->embedded_index = slot;
- 		} else if (dev->physical_slot != PHYSICAL_SLOT_UNKNOWN) {
--			dev->index_in_slot = addslot(state, dev->physical_slot);
-+			slot = addslot(state, dev->physical_slot);
-+                        if (slot<0)
-+                                return slot;
-+                        dev->index_in_slot = slot;
- 		}
- 	}
-+
-+        return 0;
- }
- 
- static void set_sriov_pf_vf(struct libbiosdevname_state *state)
-@@ -737,9 +754,12 @@ int get_pci_devices(struct libbiosdevname_state *state)
- 	dmidecode_main(state);	/* this will fail on Xen guests, that's OK */
- 	sort_device_list(state);
- 	set_pci_vpd_instance(state);
--	set_pci_slots(state);
-+	rc = set_pci_slots(state);
-+        if(rc)
-+                goto out;
- 	set_sriov_pf_vf(state);
+@@ -741,6 +747,7 @@ int get_pci_devices(struct libbiosdevname_state *state)
+ 	set_embedded_index(state);
+ 	set_pci_slot_index(state);
  
 +out:
  	return rc;
@@ -195,5 +102,5 @@ index c89cb6d..eb988e9 100644
  	return i;
  }
 -- 
-1.7.11.7
+1.9.0
 

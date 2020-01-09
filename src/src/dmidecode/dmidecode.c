@@ -119,14 +119,15 @@ int smbios_setslot(const struct libbiosdevname_state *state,
 	struct pci_device *pdev, *n;
 	int i;
 
-	dprintf("setslot: %.4x:%.2x:%.2x.%x = slot(%2d %2d) %s\n",
-		domain, bus, device, func, slot, index, label);
+	dprintf("setslot: %.4x:%.2x:%.2x.%x = type:%x slot(%2d %2d) %s\n",
+		domain, bus, device, func, type, slot, index, label);
 
 	/* Don't bother with disabled devices */
-	if ((bus == 0 && device == 0 && func == 0) ||    /* bug on HP systems */
+	if ((domain == 0xFFFF) ||
+	    (bus == 0 && device == 0 && func == 0) ||    /* bug on HP systems */
 	    (bus == 0xFF && device == 0x1F && func == 0x7)) 
 	{
-		dprintf("disabled\n");
+		dprintf("  disabled\n");
 		return;
 	}
 
@@ -153,18 +154,11 @@ int smbios_setslot(const struct libbiosdevname_state *state,
 		}
     
 		/* Found a PDEV, now is it a bridge? */
-		if (pdev->sbus == -1)
-		  continue;
-		dprintf("scan subbus: %d\n", pdev->sbus);
-		list_for_each_entry(n, &state->pci_devices, node) {
-			if (matchpci(n, domain, pdev->sbus, -1, -1)) {
-				smbios_setslot(state, n->pci_dev->domain, n->pci_dev->bus, 
-					       n->pci_dev->dev, n->pci_dev->func,
-					       type, slot, index, label);
-			}
+		if (pdev->sbus != -1) {
+			smbios_setslot(state, domain, pdev->sbus, -1, -1, type, slot, index, label);
 		}
-		dprintf("done subbus: %d\n", pdev->sbus);
 	}
+	return 0;
 }
 
 static void dmi_decode(struct dmi_header *h, u16 ver, const struct libbiosdevname_state *state)
@@ -179,12 +173,9 @@ static void dmi_decode(struct dmi_header *h, u16 ver, const struct libbiosdevnam
 			bus = data[0x0F];
 			device = (data[0x10]>>3)&0x1F;
 			function = data[0x10] & 7;
-			if (domain != 0xFFFF) {
-				for (i=0; i<8; i++) 
-					smbios_setslot(state, domain, bus, device, i, 
-						       0x00, WORD(data+0x09), 0x00,
-						       dmi_string(h, data[0x04]));
-			}
+			smbios_setslot(state, domain, bus, device, -1, 
+				       0x00, WORD(data+0x09), 0x00,
+				       dmi_string(h, data[0x04]));
 		}
 		else {
 			dprintf("Old Slot: id:%3d, type:%.2x, label:%-7s\n", WORD(data+0x09), data[0x05], dmi_string(h, data[0x04]));
@@ -361,6 +352,57 @@ static int address_from_efi(size_t *address)
 
 static const char *devmem = "/dev/mem";
 
+int dmidecode_read_file(const struct libbiosdevname_state *state)
+{
+#ifdef _JPH
+	FILE *fp;
+	const char *dmidecode_file = "dmidecode.txt";
+	char line[128], *r;
+	int type = -1, eth=0,s,b,d,f,slot,i;
+
+	if ((fp = fopen(dmidecode_file, "r")) == NULL)
+		return 0;
+	while ((fgets(line, sizeof(line), fp)) != NULL) {
+		if (strstr(line, " DMI type 41,") != NULL) {
+			type = 41;
+			eth = 0;
+			slot = -1;
+		} else if (strstr(line, " DMI type 9,") != NULL) {
+			type = 9;
+		} else if (strstr(line, " DMI type ") != NULL) {
+			type = -1;
+		}
+		if (type == 41) {
+			if ((r = strstr(line, "Type: Ethernet")) != NULL) {
+				eth = 1;
+			}
+			if ((r = strstr(line, "Type Instance: ")) != NULL) {
+				sscanf(r, "Type Instance: %d", &slot);
+			}
+			if ((r = strstr(line, "Bus Address: ")) != NULL && eth) {
+				sscanf(r, "Bus Address: %x:%x:%x.%x", &s,&b,&d,&f);
+				printf("bus: %.4x:%.2x:%.2x.%x\n", s, b, d, f);
+				smbios_setslot(state, s, b, d, f, 0x5, 0x00, slot, "");
+			}
+		}
+		if (type == 9) {
+			/* System Slots */
+			if ((r = strstr(line, "ID: ")) != NULL) {
+				sscanf(r, "ID: %d", &slot);
+			}
+			if ((r = strstr(line, "Bus Address: ")) != NULL) {
+				sscanf(r, "Bus Address: %x:%x:%x.%x", &s,&b,&d,&f);
+				printf("bus: %.4x:%.2x:%.2x.%x = %d\n", s, b, d, f, slot);
+				for (i=0; i<8; i++)
+					smbios_setslot(state, s, b, d, i, 0x00, slot, 0x00, "");
+			}
+		}
+	}
+	return 1;
+#endif
+	return 0;
+}
+
 int dmidecode_main(const struct libbiosdevname_state *state)
 {
 	int ret=0;                  /* Returned value */
@@ -368,6 +410,9 @@ int dmidecode_main(const struct libbiosdevname_state *state)
 	size_t fp;
 	int efi;
 	u8 *buf;
+
+	if (dmidecode_read_file(state))
+		return 0;
 
 	/* First try EFI (ia64, Intel-based Mac) */
 	efi=address_from_efi(&fp);

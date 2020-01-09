@@ -1,6 +1,6 @@
 Name:		biosdevname
-Version:	0.5.0
-Release:	2%{?dist}
+Version:	0.5.1
+Release:	1%{?dist}
 Summary:	Udev helper for naming devices per BIOS names
 
 Group:		System Environment/Base
@@ -19,9 +19,8 @@ BuildRequires: automake autoconf
 # for ownership of /etc/udev/rules.d
 Requires: udev
 
-Patch1: biosdevname-0.3.8-rules.patch
+Patch1: 0001-Enable-biosdevname-by-default-only-on-Dell-servers.patch
 Patch2: 0001-CoverityScan-update.patch
-Patch3: 0001-Fix-regression-introduced-by-the-addslot-function.patch
 
 %description
 biosdevname in its simplest form takes a kernel device name as an
@@ -34,7 +33,6 @@ name (e.g. eth0).
 %setup -q
 %patch1 -p1 -b .off 
 %patch2 -p1
-%patch3 -p1
 
 %build
 autoreconf
@@ -56,6 +54,10 @@ make install install-data DESTDIR=%{buildroot}
 
 
 %changelog
+* Tue May  6 2014 Tom Gundersen <tgunders@redhat.com> - 0.5.1-1
+- version 0.5.1
+Resolves: rhbz#1053492
+
 * Fri Sep 20 2013 Václav Pavlín <vpavlin@redhat.com> - 0.5.0-2
 - Fix regression introduced by the addslot function
 Resolves: rhbz#1000386
