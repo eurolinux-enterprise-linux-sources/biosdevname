@@ -1,16 +1,16 @@
 Name:		biosdevname
-Version:	0.7.2
-Release:	2%{?dist}
+Version:	0.7.3
+Release:	1%{?dist}
 Summary:	Udev helper for naming devices per BIOS names
 
 Group:		System Environment/Base
 License:	GPLv2
-URL:		http://linux.dell.com/files/%{name}
+URL:		https://github.com/dell/biosdevname
 # SMBIOS only exists on these arches.  It's also likely that other
 # arches don't expect the PCI bus to be sorted breadth-first, or of
 # so, there haven't been any comments about that on LKML.
 ExclusiveArch:	%{ix86} x86_64 ia64
-Source0:	http://linux.dell.com/files/%{name}/%{name}-%{version}/%{name}-%{version}.tar.gz
+Source0:        https://github.com/dell/%{name}/archive/v%{version}.tar.gz
 
 BuildRequires:	pciutils-devel, zlib-devel
 # to figure out how to name the rules file
@@ -23,9 +23,7 @@ Requires: udev
 
 Patch0: biosdevname-0.6.1-rules.patch
 Patch1: 0001-Place-udev-rules-to-usr-lib.patch
-Patch2: 0001-Fix-use-after-free-of-fd.patch
-Patch3: 0002-Ignore-naming-of-non-Ethernet-network-interfaces.patch
-Patch4: 0003-Prevent-reading-of-VPD-DCM-strings-for-SRIOV-vfs.patch
+Patch2: 0001-Add-support-for-ExaNIC-network-cards-5.patch
 
 %description
 biosdevname in its simplest form takes a kernel device name as an
@@ -39,8 +37,6 @@ name (e.g. eth0).
 %patch0 -p1
 %patch1 -p1
 %patch2 -p1
-%patch3 -p1
-%patch4 -p1
 
 %build
 autoreconf -iv
@@ -64,6 +60,9 @@ make install install-data DESTDIR=%{buildroot}
 
 
 %changelog
+* Wed Oct 25 2017 Michal Sekletar <msekleta@redhat.com> - 0.7.3-1
+- rebase to 0.7.3 (#1467144)
+
 * Fri Mar 31 2017 Michal Sekletar <msekleta@redhat.com> - 0.7.2-2
 - backport fixes from upstream (#1385889)
 

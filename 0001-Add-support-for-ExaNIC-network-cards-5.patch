@@ -1,0 +1,27 @@
+From 7460046a5430e92cd6a4ef0c938f80e95669b5bc Mon Sep 17 00:00:00 2001
+From: Ka-Shu Wong <31426385+kashuwong@users.noreply.github.com>
+Date: Fri, 1 Sep 2017 15:33:56 +1000
+Subject: [PATCH] Add support for ExaNIC network cards (#5)
+
+ExaNIC cards have multiple physical ports on the same PCI function and
+need to be numbered using the dev_port attribute.
+---
+ src/bios_device.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/src/bios_device.c b/src/bios_device.c
+index e9d5177..3cc528b 100644
+--- a/src/bios_device.c
++++ b/src/bios_device.c
+@@ -221,6 +221,8 @@ int ismultiport(const char *driver)
+ 		return 1;
+ 	if (!strncmp(driver, "cxgb", 4))
+ 		return 1;
++	if (!strncmp(driver, "exanic", 6))
++		return 1;
+ 	return 0;
+ }
+ 
+-- 
+2.13.6
+
