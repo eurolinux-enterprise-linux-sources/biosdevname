@@ -1,6 +1,6 @@
 Name:		biosdevname
 Version:	0.7.3
-Release:	1%{?dist}
+Release:	2%{?dist}
 Summary:	Udev helper for naming devices per BIOS names
 
 Group:		System Environment/Base
@@ -24,6 +24,8 @@ Requires: udev
 Patch0: biosdevname-0.6.1-rules.patch
 Patch1: 0001-Place-udev-rules-to-usr-lib.patch
 Patch2: 0001-Add-support-for-ExaNIC-network-cards-5.patch
+Patch3: 0001-Prevent-infinite-recursion-in-dmidecode.c-smbios_set.patch
+Patch4: 0001-man-fix-all_ethN-indentation.patch
 
 %description
 biosdevname in its simplest form takes a kernel device name as an
@@ -37,6 +39,8 @@ name (e.g. eth0).
 %patch0 -p1
 %patch1 -p1
 %patch2 -p1
+%patch3 -p1
+%patch4 -p1
 
 %build
 autoreconf -iv
@@ -60,6 +64,10 @@ make install install-data DESTDIR=%{buildroot}
 
 
 %changelog
+* Wed Mar 27 2019 Michal Sekletár <msekleta@redhat.com> - 0.7.3-2
+- prevent infinite recursion in dmidecode.c::smbios_setslot (#1642706)
+- fix indentation in the man page (#1642706)
+
 * Wed Oct 25 2017 Michal Sekletar <msekleta@redhat.com> - 0.7.3-1
 - rebase to 0.7.3 (#1467144)
 

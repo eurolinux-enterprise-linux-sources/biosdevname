@@ -1,0 +1,26 @@
+From 42abae6e56f22245ac8d693ab88ad1e3ea75a220 Mon Sep 17 00:00:00 2001
+From: Dan Kenigsberg <danken@redhat.com>
+Date: Sun, 27 Jan 2019 09:26:53 +0200
+Subject: [PATCH] man: fix all_ethN indentation
+
+all_ethN is not another .TP block under the physical policy, it is a paragraph of its own right.
+---
+ biosdevname.1 | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/biosdevname.1 b/biosdevname.1
+index 22a53bd..643eae5 100644
+--- a/biosdevname.1
++++ b/biosdevname.1
+@@ -60,7 +60,7 @@ for embedded NICs
+ p<slot>p<port>[_<virtual instance>]
+ for cards in PCI slots
+ .br
+-.TP
++.PP
+ The
+ .B all_ethN
+ policy makes a best guess at what the device order should be, with
+-- 
+2.17.2
+
