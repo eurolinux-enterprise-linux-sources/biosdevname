@@ -21,6 +21,7 @@ void free_bios_devices(void *cookie)
 		return;
 	list_for_each_entry_safe(dev, n, &state->bios_devices, node) {
 		list_del(&(dev->node));
+		free(dev->bios_name);
 		free(dev);
 	}
 }
@@ -138,6 +139,7 @@ static int sort_smbios(const struct bios_device *x, const struct bios_device *y)
 
 	if      (x->pcidev && !y->pcidev) return -1;
 	else if (!x->pcidev && y->pcidev) return 1;
+	else if (!x->pcidev && !y->pcidev) return 0;
 
 	a = x->pcidev;
 	b = y->pcidev;
@@ -215,7 +217,7 @@ static void sort_device_list(struct libbiosdevname_state *state)
 /* Check for Mellanox/Chelsio drivers */
 int ismultiport(const char *driver)
 {
-	if (!strncmp(driver, "mlx", 3))
+	if (!strncmp(driver, "mlx4", 4))
 		return 1;
 	if (!strncmp(driver, "cxgb", 4))
 		return 1;

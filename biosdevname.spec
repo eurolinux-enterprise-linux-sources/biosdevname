@@ -1,5 +1,5 @@
 Name:		biosdevname
-Version:	0.6.2
+Version:	0.7.2
 Release:	1%{?dist}
 Summary:	Udev helper for naming devices per BIOS names
 
@@ -59,6 +59,12 @@ make install install-data DESTDIR=%{buildroot}
 
 
 %changelog
+* Thu May 26 2016 Michal Sekletar <msekleta@redhat.com> - 0.7.2-1
+- rebase to 0.7.2 (#1269524)
+
+* Fri Dec 18 2015 Michal Sekletar <msekleta@redhat.com> - 0.7.0-1
+- rebase to 0.7.0 (#1269524)
+
 * Fri Jun 12 2015 Michal Sekletar <msekleta@redhat.com> - 0.6.2-1
 - rebase to 0.6.2 (#1182849)
 
