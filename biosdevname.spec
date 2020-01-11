@@ -1,6 +1,6 @@
 Name:		biosdevname
 Version:	0.7.2
-Release:	1%{?dist}
+Release:	2%{?dist}
 Summary:	Udev helper for naming devices per BIOS names
 
 Group:		System Environment/Base
@@ -23,6 +23,9 @@ Requires: udev
 
 Patch0: biosdevname-0.6.1-rules.patch
 Patch1: 0001-Place-udev-rules-to-usr-lib.patch
+Patch2: 0001-Fix-use-after-free-of-fd.patch
+Patch3: 0002-Ignore-naming-of-non-Ethernet-network-interfaces.patch
+Patch4: 0003-Prevent-reading-of-VPD-DCM-strings-for-SRIOV-vfs.patch
 
 %description
 biosdevname in its simplest form takes a kernel device name as an
@@ -35,7 +38,9 @@ name (e.g. eth0).
 %setup -q
 %patch0 -p1
 %patch1 -p1
-
+%patch2 -p1
+%patch3 -p1
+%patch4 -p1
 
 %build
 autoreconf -iv
@@ -59,6 +64,9 @@ make install install-data DESTDIR=%{buildroot}
 
 
 %changelog
+* Fri Mar 31 2017 Michal Sekletar <msekleta@redhat.com> - 0.7.2-2
+- backport fixes from upstream (#1385889)
+
 * Thu May 26 2016 Michal Sekletar <msekleta@redhat.com> - 0.7.2-1
 - rebase to 0.7.2 (#1269524)
 

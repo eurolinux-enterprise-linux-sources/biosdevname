@@ -1,0 +1,46 @@
+From eb7cb935f585d41163bb9bf0e64f267cb0597bdd Mon Sep 17 00:00:00 2001
+From: Sujith Pandel <sujithpandel@gmail.com>
+Date: Tue, 14 Mar 2017 11:44:23 +0530
+Subject: [PATCH] Ignore naming of non-Ethernet network interfaces
+
+Support of biosdevname is to name Ethernet interfaces only, as per biosdevname spec.
+Currently, manual call of biosdevname on other types of network interfaces will return interface names.
+This code change is to ignore naming of Infiniband and other types of network interfaces.
+
+(cherry picked from commit 609f20c26f40ae4883f5e8c9b241470260722b3f)
+---
+ src/bios_device.c | 3 +++
+ src/eths.h        | 5 +++++
+ 2 files changed, 8 insertions(+)
+
+diff --git a/src/bios_device.c b/src/bios_device.c
+index 6636e67..e9d5177 100644
+--- a/src/bios_device.c
++++ b/src/bios_device.c
+@@ -238,6 +238,9 @@ static void match_pci_and_eth_devs(struct libbiosdevname_state *state)
+ 		/* Loop through all ether devices to find match */
+ 		unparse_pci_name(pci_name, sizeof(pci_name), p->pci_dev);
+ 		list_for_each_entry(n, &state->network_devices, node) {
++			//Accept only Ethernet devices, otherwise ignore.
++			if(!netdev_arphrd_type_is_eth(n))
++				continue;
+ 			if (strncmp(n->drvinfo.bus_info, pci_name, sizeof(n->drvinfo.bus_info)))
+ 				continue;
+ 			/* Ignore if devtype is fcoe */
+diff --git a/src/eths.h b/src/eths.h
+index a145b4f..b695d3d 100644
+--- a/src/eths.h
++++ b/src/eths.h
+@@ -63,4 +63,9 @@ static inline int netdev_devtype_is_fcoe(const struct network_device *dev)
+ 	return (dev->devtype_is_fcoe == 1);
+ }
+ 
++static inline int netdev_arphrd_type_is_eth(const struct network_device *dev)
++{
++        return (dev->arphrd_type == ARPHRD_ETHER);
++}
++
+ #endif /* __ETHS_H_INCLUDED */
+-- 
+2.9.3
+
